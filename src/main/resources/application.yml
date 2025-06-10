@@ -4,22 +4,53 @@ server:
 spring:
   application:
     name: agent-portal-service
+  # External API configurations
+  config:
+    import: optional:file:.env[.properties]
+  # Database Configuration
+  datasource:
+    url: jdbc:h2:mem:agentportaldb
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        '[format_sql]': true
+  # OpenFeign Configuration
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connectTimeout: 5000
+            readTimeout: 5000
+            loggerLevel: full
+      circuitbreaker:
+        enabled: true
 
-# External API configurations
-api:
-  origami:
-    base-url: https://api.origami.com
-    api-key: ${ORIGAMI_API_KEY:your-origami-api-key}
-  rootsai:
-    base-url: https://api.roots.ai
-    api-key: ${ROOTSAI_API_KEY:your-rootsai-api-key}
-  agent-portal:
-    base-url: https://agent-portal.windsurf.com
-    api-key: ${AGENT_PORTAL_API_KEY:your-agent-portal-api-key}
-
-# Security Configuration
-security:
-  api-key: ${API_KEY:your-secure-api-key}
+# API Configuration (custom properties)
+app:
+  apis:
+    origami:
+      base-url: https://api.origami.com
+      api-key: ${ORIGAMI_API_KEY:your-origami-api-key}
+    rootsai:
+      base-url: https://api.roots.ai
+      api-key: ${ROOTSAI_API_KEY:your-rootsai-api-key}
+    agent-portal:
+      base-url: https://agent-portal.springcloud.com
+      api-key: ${AGENT_PORTAL_API_KEY:your-agent-portal-api-key}
+  # Security Configuration
+  security:
+    api-key: ${API_KEY:your-secure-api-key}
 
 # Actuator
 management:
@@ -34,19 +65,10 @@ management:
 # Logging Configuration
 logging:
   level:
-    com.windsurf.agentportal: DEBUG
-    org.springframework.web: INFO
-    org.springframework.security: INFO
-    org.springframework.cloud.openfeign: DEBUG
-
-# OpenFeign Configuration
-feign:
-  client:
-    config:
-      default:
-        connectTimeout: 5000
-        readTimeout: 5000
-        loggerLevel: full
+    com.springcloud.agentportal: DEBUG
+    '[org.springframework.web]': INFO
+    '[org.springframework.security]': INFO
+    '[org.springframework.cloud.openfeign]': DEBUG
 
 # OpenAPI Documentation
 springdoc:
