@@ -118,13 +118,53 @@ AGENT_PORTAL_API_KEY=your-agent-portal-key
 API_KEY=your-service-api-key
 ```
 
+## Circuit Breaker Pattern Implementation
+
+This project demonstrates the implementation of the Circuit Breaker pattern using Spring Cloud Circuit Breaker with Resilience4j. The circuit breaker pattern is crucial for building fault-tolerant microservices that can handle failures gracefully.
+
+### How It Works
+
+1. **Circuit States**:
+   - **CLOSED**: Normal operation, calls pass through to external services
+   - **OPEN**: After reaching failure threshold, calls are immediately routed to fallback
+   - **HALF-OPEN**: After cooldown period, some calls are allowed to test if service recovered
+
+2. **Components**:
+   - `CircuitBreakerSubmissionService`: Wraps Agent Portal client calls with circuit breaker
+   - `ResilienceConfig`: Configures circuit breaker properties
+   - `FeignClientConfig`: Sets up Feign clients with error handling
+
+3. **Configuration** (in application.yml):
+   ```yaml
+   spring.cloud.circuitbreaker.enabled: true
+   resilience4j.circuitbreaker:
+     instances:
+       notificationService:
+         failureRateThreshold: 50
+         waitDurationInOpenState: 30s
+         slidingWindowSize: 10
+   ```
+
+4. **Fallback Strategies**:
+   - Local database storage for later retry
+   - Alternative notification methods
+   - Message queue for asynchronous processing
+   - Logging for manual intervention
+
+### Benefits
+
+- **Prevents Cascading Failures**: Isolates problems in one service from affecting others
+- **Improves Response Time**: Quickly rejects requests that are likely to fail
+- **Enables Self-Recovery**: Automatically tests recovery with half-open state
+- **Provides Fallback Mechanisms**: Ensures alternative workflows when services are down
+
 ## Future Enhancements
 
-- Add circuit breaker patterns for external API calls using Resilience4j or Spring Cloud Circuit Breaker
-- Implement retry mechanism for failed requests with exponential backoff
+- ✅ Add circuit breaker patterns for external API calls (Implemented)
+- Implement retry mechanism for failed requests
 - Add distributed tracing with Spring Cloud Sleuth and Zipkin
-- Implement API rate limiting and throttling
-- Add caching layer for frequently accessed data
+- Implement API rate limiting using Spring Cloud Gateway
+- Add event-driven architecture with Spring Cloud Stream
 - Implement message queuing with Kafka or RabbitMQ for asynchronous processing
 - Add comprehensive metrics collection with Micrometer and Prometheus
 - Implement canary deployments and A/B testing capabilities
