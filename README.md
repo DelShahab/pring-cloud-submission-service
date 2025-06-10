@@ -158,6 +158,148 @@ This project demonstrates the implementation of the Circuit Breaker pattern usin
 - **Enables Self-Recovery**: Automatically tests recovery with half-open state
 - **Provides Fallback Mechanisms**: Ensures alternative workflows when services are down
 
+### Comprehensive Code Explanation
+
+#### 1. Circuit Breaker Service Implementation
+
+```java
+@Component
+@Slf4j
+public class CircuitBreakerSubmissionService {
+
+    private final CircuitBreaker notificationCircuitBreaker;
+    private final AgentPortalNotifierClient agentPortalNotifierClient;
+    
+    @Value("${api.agent-portal.api-key}")
+    private String agentPortalApiKey;
+
+    // Constructor injecting dependencies
+    public CircuitBreakerSubmissionService(
+            CircuitBreakerFactory<?, ?> circuitBreakerFactory,
+            AgentPortalNotifierClient agentPortalNotifierClient) {
+        // Create named circuit breaker that links to configuration
+        this.notificationCircuitBreaker = circuitBreakerFactory.create("notificationService");
+        this.agentPortalNotifierClient = agentPortalNotifierClient;
+    }
+    
+    public void notifyUserWithCircuitBreaker(String userId, String submissionId, String status, String message) {
+        // Create notification request
+        NotificationRequest request = NotificationRequest.builder()
+                .submissionId(submissionId)
+                .status(status)
+                .message(message)
+                .timestamp(LocalDateTime.now().format(DATE_FORMATTER))
+                .build();
+        
+        // Execute with circuit breaker protection
+        notificationCircuitBreaker.run(
+            // Primary execution path - calls Agent Portal
+            () -> {
+                agentPortalNotifierClient.notifyUser(agentPortalApiKey, userId, request);
+                log.info("Successfully sent notification to Agent Portal for userId: {}", userId);
+                return true;
+            },
+            // Fallback path - executes on failure or when circuit is open
+            throwable -> {
+                log.error("Circuit breaker triggered: {}", throwable.getMessage());
+                // Fallback strategies would be implemented here
+                return false;
+            }
+        );
+    }
+}
+```
+
+#### 2. Circuit Breaker Configuration
+
+```java
+@Configuration
+public class ResilienceConfig {
+    
+    @Bean
+    public Customizer<Resilience4JCircuitBreakerFactory> defaultCustomizer() {
+        return factory -> factory.configureDefault(id -> new Resilience4JConfigBuilder(id)
+                // Set timeout for calls
+                .timeLimiterConfig(TimeLimiterConfig.custom()
+                        .timeoutDuration(Duration.ofSeconds(4))
+                        .build())
+                // Configure circuit breaker behavior
+                .circuitBreakerConfig(CircuitBreakerConfig.custom()
+                        // Open circuit when 50% of calls fail
+                        .failureRateThreshold(50)
+                        // Keep circuit open for 30 seconds
+                        .waitDurationInOpenState(Duration.ofSeconds(30))
+                        // Base failure rate on last 10 calls
+                        .slidingWindowSize(10)
+                        .build())
+                .build());
+    }
+}
+```
+
+#### 3. Feign Client for Agent Portal
+
+```java
+@FeignClient(name = "agentPortalClient", url = "${app.apis.agent-portal.base-url}")
+public interface AgentPortalNotifierClient {
+    
+    @PostMapping("/notifyme/{userId}")
+    void notifyUser(@RequestHeader("X-API-KEY") String apiKey, 
+                    @PathVariable String userId,
+                    @RequestBody NotificationRequest request);
+}
+```
+
+#### 4. Integration in Service Layer
+
+```java
+@Service
+@RequiredArgsConstructor
+public class SubmissionServiceImpl extends BaseServiceImpl<Submission, String> implements ISubmissionService {
+
+    private final CircuitBreakerSubmissionService circuitBreakerSubmissionService;
+    
+    @Override
+    public SubmissionResponse processSubmission(SubmissionRequest request, MultipartFile file) {
+        // Processing logic...
+        
+        // Step 5: Send notification with circuit breaker protection
+        circuitBreakerSubmissionService.notifyUserWithCircuitBreaker(
+                request.getUserId(),
+                submissionProposalId,
+                "PROCESSED",
+                "Submission was successfully processed");
+                
+        // Rest of method...
+    }
+}
+```
+
+#### 5. Error Handling for Feign Clients
+
+```java
+@Component
+public class FeignErrorDecoder implements ErrorDecoder {
+    
+    private final ErrorDecoder defaultErrorDecoder = new Default();
+    
+    @Override
+    public Exception decode(String methodKey, Response response) {
+        // Custom error handling based on HTTP status
+        if (response.status() >= 500) {
+            return new SubmissionServiceException("External service unavailable");
+        } else if (response.status() == 429) {
+            return new SubmissionServiceException("Rate limit exceeded");
+        }
+        
+        // Default error handling
+        return defaultErrorDecoder.decode(methodKey, response);
+    }
+}
+```
+
+This implementation demonstrates a complete circuit breaker integration for the Agent Portal notification service. The pattern ensures that failures in the Agent Portal don't cascade to the submission service, maintaining system stability and responsiveness.
+
 ## Future Enhancements
 
 - ✅ Add circuit breaker patterns for external API calls (Implemented)
