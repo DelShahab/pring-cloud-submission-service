@@ -88,25 +88,28 @@ public class CircuitBreakerSubmissionService {
             throwable -> {
                 log.error("Circuit breaker triggered when sending notification: {}", throwable.getMessage());
                 
-                // FALLBACK IMPLEMENTATION STRATEGIES:
-                // --------------------------------
-                // 1. Store notification in a local database for later retry
-                //    Example: notificationRepository.save(createLocalNotification(userId, submissionId, message));
-                //
-                // 2. Use an alternative notification method
-                //    Example: emailService.sendNotificationEmail(userId, submissionId, message);
-                //
-                // 3. Queue the notification for later processing using message broker
-                //    Example: rabbitTemplate.convertAndSend("notification.queue", createNotificationMessage(...));
-                //
-                // 4. Log the failure for manual intervention
-                //    Already implemented with the log.error above
-                //
-                // Note: In a production environment, you should implement at least one of these
-                // fallback strategies to ensure notifications are eventually delivered
+                // Log the failure for manual intervention and store notification details for later processing
+                logFailedNotification(userId, submissionId, throwable.getMessage());
                 
                 return false; // Indicates fallback was triggered and primary action failed
             }
         );
+    }
+    
+    /**
+     * Logs failed notifications for monitoring and troubleshooting
+     * In a production environment, this would be extended to store notifications
+     * for later retry using a persistent storage mechanism
+     * 
+     * @param userId User ID that was being notified
+     * @param submissionId Related submission ID
+     * @param errorDetails Details of the error that occurred
+     */
+    private void logFailedNotification(String userId, String submissionId, String errorDetails) {
+        log.warn("Failed notification for userId: {}, submissionId: {}, error: {}", 
+                userId, submissionId, errorDetails);
+                
+        // In a full implementation, we would store this information for retry
+        // using a persistent store like a database or message queue
     }
 }

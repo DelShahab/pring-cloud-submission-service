@@ -23,7 +23,7 @@ spring:
     show-sql: true
     properties:
       hibernate:
-        '[format_sql]': true
+        "[format_sql]": true
   # OpenFeign Configuration
   cloud:
     openfeign:
@@ -35,6 +35,8 @@ spring:
             loggerLevel: full
       circuitbreaker:
         enabled: true
+
+# Actuator Configuration
 
 # API Configuration (custom properties)
 app:
@@ -57,10 +59,17 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,circuitbreakers
   endpoint:
     health:
       show-details: always
+      show-components: always
+      group:
+        circuit-breaker:
+          include: circuitBreakerHealthIndicator
+  health:
+    circuitbreakers:
+      enabled: true
 
 # Logging Configuration
 logging:
